@@ -1,22 +1,24 @@
 package cls_skywalking_client_go
 
 import (
+	"github.com/liuyungen1988/cls-skywalking-client-go/util"
 	"net/http"
 	"time"
-	"github.com/liuyungen1988/cls-skywalking-client-go/util"
 
 	"errors"
 	"fmt"
+	"github.com/labstack/echo/v4"
 	"github.com/liuyungen1988/go2sky"
 	"github.com/liuyungen1988/go2sky/propagation"
 	v3 "github.com/liuyungen1988/go2sky/reporter/grpc/language-agent"
-	"github.com/labstack/echo/v4"
 )
 
 func StartSpantoSkyWalking(url string, params []string, remoteService string) (go2sky.Span, error) {
 	originCtx := GetContext()
+	// 如果上下文为空,就意味着不想记录
 	if originCtx == nil {
-		return nil, errors.New("can not get Context")
+		return nil, nil
+		// return nil, errors.New("can not get Context")
 	}
 	ctx := originCtx.(echo.Context)
 	// op_name 是每一个操作的名称
@@ -31,7 +33,7 @@ func StartSpantoSkyWalking(url string, params []string, remoteService string) (g
 		}
 		return nil
 	})
-	if(err != nil) {
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("StartSpantoSkyWalking CreateExitSpan error: %s", err))
 	}
 	reqSpan.SetComponent(2)                 //HttpClient,看 https://github.com/apache/skywalking/blob/master/docs/en/guides/Component-library-settings.md ， 目录在component-libraries.yml文件配置

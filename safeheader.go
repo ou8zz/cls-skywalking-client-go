@@ -1,8 +1,8 @@
 package cls_skywalking_client_go
 
 import (
-	"sync"
 	"net/http"
+	"sync"
 )
 
 type SafeHeader struct {
@@ -10,7 +10,7 @@ type SafeHeader struct {
 	header http.Header
 }
 
-func newSafeHeader(inputHeader http.Header ) *SafeHeader {
+func newSafeHeader(inputHeader http.Header) *SafeHeader {
 	sm := new(SafeHeader)
 	sm.header = inputHeader
 	return sm
@@ -19,13 +19,13 @@ func newSafeHeader(inputHeader http.Header ) *SafeHeader {
 
 func (sh *SafeHeader) Get(key string) string {
 	sh.RLock()
+	defer sh.RUnlock()
 	value := sh.header.Get(key)
-	sh.RUnlock()
 	return value
 }
 
 func (sh *SafeHeader) Set(key string, value string) {
 	sh.Lock()
+	defer sh.Unlock()
 	sh.header.Set(key, value)
-	sh.Unlock()
 }

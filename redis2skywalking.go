@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"errors"
+	"github.com/labstack/echo/v4"
 	"github.com/liuyungen1988/go2sky"
 	"github.com/liuyungen1988/go2sky/propagation"
 	v3 "github.com/liuyungen1988/go2sky/reporter/grpc/language-agent"
-	"strconv"
 	"gopkg.in/redis.v5"
-	"github.com/labstack/echo/v4"
+	"strconv"
 )
 
 type RedisProxy struct {
@@ -46,11 +46,11 @@ func (f RedisProxy) Get(key string) *redis.StringCmd {
 
 	_, err := cmd.Result()
 
-	if(err != nil) {
-	   errStr := fmt.Sprintf("%s", err)
-	   if(errStr == "redis: nil"){
-	   	  err = nil
-	   }
+	if err != nil {
+		errStr := fmt.Sprintf("%s", err)
+		if errStr == "redis: nil" {
+			err = nil
+		}
 	}
 	defer processResult(span, "Get "+key,
 		err)
@@ -169,9 +169,9 @@ func (f RedisProxy) HGet(key, field string) *redis.StringCmd {
 
 	_, err := cmd.Result()
 
-	if(err != nil) {
+	if err != nil {
 		errStr := fmt.Sprintf("%s", err)
-		if(errStr == "redis: nil"){
+		if errStr == "redis: nil" {
 			err = nil
 		}
 	}
@@ -336,9 +336,20 @@ func (f RedisProxy) ZRangeByScore(key string, opt redis.ZRangeBy) *redis.StringS
 
 }
 
+func (f RedisProxy) ZRangeByScoreWithScores(key string, opt redis.ZRangeBy) *redis.ZSliceCmd {
+	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZRangeByScoreWithScores %s ", key), f.getRedisCache().String())
+
+	cmd := f.getRedisCache().ZRangeByScoreWithScores(key, opt)
+
+	_, err := cmd.Result()
+	defer processResult(span, fmt.Sprintf("ZRangeByScoreWithScores %s ", key),
+		err)
+	return cmd
+}
+
 func (f RedisProxy) Pipelined(fn func(*redis.Pipeline) error) ([]redis.Cmder, error) {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("start Pipelined"), f.getRedisCache().String())
-	defer  EndSpantoSkywalkingForRedis(span, "end Pipelined", true, nil)
+	defer EndSpantoSkywalkingForRedis(span, "end Pipelined", true, nil)
 	return f.getRedisCache().Pipelined(fn)
 }
 
@@ -351,7 +362,6 @@ func (f RedisProxy) Del(keys ...string) *redis.IntCmd {
 	defer processResult(span, fmt.Sprintf("Del keys %v", keys),
 		err)
 	return cmd
-
 
 }
 
@@ -368,7 +378,6 @@ func (f RedisProxy) ZRemRangeByScore(key, min, max string) *redis.IntCmd {
 
 func (f RedisProxy) ZAdd(key string, members ...redis.Z) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZAdd key: %s", key), f.getRedisCache().String())
-
 
 	cmd := f.getRedisCache().ZAdd(key, members...)
 
@@ -403,7 +412,7 @@ func (f RedisProxy) ZRemRangeByRank(key string, start, stop int64) *redis.IntCmd
 func (f RedisProxy) ZRem(key string, members ...interface{}) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZRem key: %s", key), f.getRedisCache().String())
 
-	cmd:=  f.getRedisCache().ZRem(key, members...)
+	cmd := f.getRedisCache().ZRem(key, members...)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("ZRem key: %s", key),
@@ -411,10 +420,10 @@ func (f RedisProxy) ZRem(key string, members ...interface{}) *redis.IntCmd {
 	return cmd
 }
 
-func (f RedisProxy)  ZRank(key, member string) *redis.IntCmd {
+func (f RedisProxy) ZRank(key, member string) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZRank key: %s, member:%s", key, member), f.getRedisCache().String())
 
-	cmd:=  f.getRedisCache().ZRank(key, member)
+	cmd := f.getRedisCache().ZRank(key, member)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("ZRank key: %s, member:%s", key, member),
@@ -425,7 +434,7 @@ func (f RedisProxy)  ZRank(key, member string) *redis.IntCmd {
 func (f RedisProxy) Decr(key string) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("Decr key: %s", key), f.getRedisCache().String())
 
-	cmd:=  f.getRedisCache().Decr(key)
+	cmd := f.getRedisCache().Decr(key)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("Decr key: %s", key),
@@ -436,7 +445,7 @@ func (f RedisProxy) Decr(key string) *redis.IntCmd {
 func (f RedisProxy) ZRevRange(key string, start, stop int64) *redis.StringSliceCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZRevRange %s, start %s, stop %s ", key, strconv.FormatInt(start, 10), strconv.FormatInt(stop, 10)), f.getRedisCache().String())
 
-	cmd:=  f.getRedisCache().ZRevRange(key, start, stop)
+	cmd := f.getRedisCache().ZRevRange(key, start, stop)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("ZRevRange %s, start %s, stop %s ", key, strconv.FormatInt(start, 10), strconv.FormatInt(stop, 10)),
@@ -451,14 +460,14 @@ func (f RedisProxy) ZCount(key, min, max string) *redis.IntCmd {
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("ZCount %s, min %s, max %s ", key, min, max),
-	err)
+		err)
 	return cmd
 }
 
 func (f RedisProxy) SAdd(key string, members ...interface{}) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("SAdd %s ", key), f.getRedisCache().String())
 
-	cmd := f.getRedisCache().SAdd(key,  members...)
+	cmd := f.getRedisCache().SAdd(key, members...)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("SAdd %s ", key),
@@ -469,7 +478,7 @@ func (f RedisProxy) SAdd(key string, members ...interface{}) *redis.IntCmd {
 func (f RedisProxy) SRem(key string, members ...interface{}) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("SRem %s ", key), f.getRedisCache().String())
 
-	cmd := f.getRedisCache().SRem(key,  members...)
+	cmd := f.getRedisCache().SRem(key, members...)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("SRem %s ", key),
@@ -477,7 +486,7 @@ func (f RedisProxy) SRem(key string, members ...interface{}) *redis.IntCmd {
 	return cmd
 }
 
-func (f RedisProxy)  LLen(key string) *redis.IntCmd {
+func (f RedisProxy) LLen(key string) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("LLen %s ", key), f.getRedisCache().String())
 
 	cmd := f.getRedisCache().LLen(key)
@@ -498,8 +507,6 @@ func (f RedisProxy) LRem(key string, count int64, value interface{}) *redis.IntC
 		err)
 	return cmd
 }
-
-
 
 func (f RedisProxy) TTL(key string) *redis.DurationCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("TTL key: %s", key), f.getRedisCache().String())
@@ -546,11 +553,10 @@ func (f RedisProxy) Keys(pattern string) *redis.StringSliceCmd {
 	return cmd
 }
 
-
 func (f RedisProxy) ZRevRangeByScore(key string, opt redis.ZRangeBy) *redis.StringSliceCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZRevRangeByScore key: %s", key), f.getRedisCache().String())
 
-	cmd :=  f.getRedisCache().ZRevRangeByScore(key, opt)
+	cmd := f.getRedisCache().ZRevRangeByScore(key, opt)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("ZRevRangeByScore key: %s", key),
@@ -558,10 +564,21 @@ func (f RedisProxy) ZRevRangeByScore(key string, opt redis.ZRangeBy) *redis.Stri
 	return cmd
 }
 
+func (f RedisProxy) ZRevRangeByScoreWithScores(key string, opt redis.ZRangeBy) *redis.ZSliceCmd {
+	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("ZRevRangeByScoreWithScores %s ", key), f.getRedisCache().String())
+
+	cmd := f.getRedisCache().ZRevRangeByScoreWithScores(key, opt)
+
+	_, err := cmd.Result()
+	defer processResult(span, fmt.Sprintf("ZRevRangeByScoreWithScores %s ", key),
+		err)
+	return cmd
+}
+
 func (f RedisProxy) Publish(channel, message string) *redis.IntCmd {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("Publish channel: %s, message: %s", channel, message), f.getRedisCache().String())
 
-	cmd :=  f.getRedisCache().Publish(channel, message)
+	cmd := f.getRedisCache().Publish(channel, message)
 
 	_, err := cmd.Result()
 	defer processResult(span, fmt.Sprintf("Publish channel: %s, message: %s", channel, message),
@@ -571,22 +588,23 @@ func (f RedisProxy) Publish(channel, message string) *redis.IntCmd {
 
 func (f RedisProxy) Pipeline() *redis.Pipeline {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("start Pipeline"), f.getRedisCache().String())
-	defer  EndSpantoSkywalkingForRedis(span, "end Pipeline", true, nil)
+	defer EndSpantoSkywalkingForRedis(span, "end Pipeline", true, nil)
 
 	return f.getRedisCache().Pipeline()
 }
 
-func  (f RedisProxy) Close() error {
+func (f RedisProxy) Close() error {
 	span, _ := StartSpantoSkyWalkingForRedis(fmt.Sprintf("start Close"), f.getRedisCache().String())
-	defer  EndSpantoSkywalkingForRedis(span, "end Close", true, nil)
+	defer EndSpantoSkywalkingForRedis(span, "end Close", true, nil)
 	return f.getRedisCache().Close()
 }
 
-
 func StartSpantoSkyWalkingForRedis(queryStr string, db string) (go2sky.Span, error) {
 	originCtx := GetContext()
+	// 如果上下文为空,就意味着不想记录
 	if originCtx == nil {
-		return nil, errors.New("can not get Context")
+		return nil, nil
+		// return nil, errors.New("can not get Context")
 	}
 	ctx := originCtx.(echo.Context)
 	// op_name 是每一个操作的名称
@@ -601,7 +619,7 @@ func StartSpantoSkyWalkingForRedis(queryStr string, db string) (go2sky.Span, err
 		}
 		return nil
 	})
-	if(err != nil) {
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("StartSpantoSkyWalkingForRedis CreateExitSpan error: %s", err))
 	}
 	reqSpan.SetComponent(7)
@@ -625,6 +643,9 @@ func EndSpantoSkywalkingForRedis(reqSpan go2sky.Span, queryStr string, isNormal 
 }
 
 func processResult(span go2sky.Span, str string, err error) {
+	if span == nil {
+		return
+	}
 	if err == nil {
 		EndSpantoSkywalkingForRedis(span, str, true, nil)
 	} else {

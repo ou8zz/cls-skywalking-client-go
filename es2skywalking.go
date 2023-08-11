@@ -1,22 +1,22 @@
 package cls_skywalking_client_go
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"github.com/labstack/echo/v4"
 	"github.com/liuyungen1988/go2sky"
 	"github.com/liuyungen1988/go2sky/propagation"
 	v3 "github.com/liuyungen1988/go2sky/reporter/grpc/language-agent"
-	"github.com/labstack/echo/v4"
+	"github.com/olivere/elastic"
+	"log"
+	"net/url"
 	"reflect"
 	"time"
 	_ "unsafe"
-	"context"
-	"fmt"
-	"github.com/olivere/elastic"
-	"net/url"
-	"log"
 )
 
-type  EsSearchServiceProxy struct {
+type EsSearchServiceProxy struct {
 	searchService *elastic.SearchService
 }
 
@@ -53,13 +53,15 @@ func (s *EsSearchServiceProxy) Do(ctx context.Context) (*elastic.SearchResult, e
 		EndSpantoSkywalkingForDb(reqSpan, path, true, nil)
 	}
 
-	return result , err
+	return result, err
 }
 
 func StartSpantoSkyWalkingForES(queryStr string) (go2sky.Span, error) {
 	originCtx := GetContext()
+	// 如果上下文为空,就意味着不想记录
 	if originCtx == nil {
-		return nil, errors.New(fmt.Sprintf("can not get context, queryStr %s", queryStr))
+		return nil, nil
+		// return nil, errors.New(fmt.Sprintf("can not get context, queryStr %s", queryStr))
 	}
 	ctx := originCtx.(echo.Context)
 	// op_name 是每一个操作的名称
@@ -69,14 +71,14 @@ func StartSpantoSkyWalkingForES(queryStr string) (go2sky.Span, error) {
 	}
 	tracer := tracerFromCtx.(*go2sky.Tracer)
 	reqSpan, err := tracer.CreateExitSpan(ctx.Request().Context(), queryStr, "ES", func(header string) error {
-		if(reflect.TypeOf(ctx.Get("header")) != nil) {
+		if reflect.TypeOf(ctx.Get("header")) != nil {
 			ctx.Get("header").(*SafeHeader).Set(propagation.Header, header)
 		}
 
 		return nil
 	})
 
-	if(err != nil) {
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("StartSpantoSkyWalkingForES CreateExitSpan error: %s", err))
 	}
 
@@ -99,8 +101,3 @@ func EndSpantoSkywalkingForEs(reqSpan go2sky.Span, queryStr string, isNormal boo
 	}
 	reqSpan.End()
 }
-
-
-
-
-
