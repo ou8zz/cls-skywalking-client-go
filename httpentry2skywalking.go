@@ -1,26 +1,23 @@
 package cls_skywalking_client_go
 
 import (
+	"bufio"
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"fmt"
-
-	"bytes"
+	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
-
-	"compress/flate"
-	"io"
-	"net"
-
-	"bufio"
-	"compress/gzip"
 	"sync"
+	"time"
 
 	"github.com/liuyungen1988/go2sky/propagation"
 	"github.com/liuyungen1988/go2sky/reporter"
@@ -79,7 +76,7 @@ func getReporter(isDebug string, skywalkingOapIp string) (go2sky.Reporter, error
 	}
 
 	if isDebug == "true" {
-		return reporter.NewGRPCReporter("127.0.0.1:8050")
+		return reporter.NewGRPCReporter("127.0.0.1:11800")
 	} else {
 		return reporter.NewGRPCReporter("skywalking-oap:11800")
 	}
@@ -138,7 +135,7 @@ func EndLogForCron(span go2sky.Span, taskName, result string) {
 	span.End()
 }
 
-var rwmForLog      sync.RWMutex
+var rwmForLog sync.RWMutex
 
 func LogToSkyWalking(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
@@ -207,9 +204,8 @@ func LogToSkyWalking(next echo.HandlerFunc) echo.HandlerFunc {
 
 		err = next(c)
 
-
 		proto := c.Request().Proto
-		if  proto != "HTTP/1.1" {
+		if proto != "HTTP/1.1" {
 			return
 		}
 
@@ -234,7 +230,6 @@ func dologResponse(err error, c echo.Context, traceId string) {
 	} else {
 		span.Log(time.Now(), fmt.Sprintf("resposne size :%s, too big", strconv.FormatInt(c.Response().Size, 10)))
 	}
-
 
 	code := c.Response().Status
 	if code >= 400 {
@@ -283,13 +278,13 @@ func filter(str string) bool {
 }
 
 func logResponse(span go2sky.Span, res *echo.Response, c echo.Context, traceId string) {
-	t:=time.Now().Unix()
+	t := time.Now().Unix()
 	NewW := res.Writer
 
 	var readBytes []byte
 	//支持GZIP
-	isZip := isZip(NewW)
-	if isZip {
+	_isZip := isZip(NewW)
+	if _isZip {
 		responseWriter := reflect.Indirect(reflect.ValueOf(NewW).Elem().FieldByName("ResponseWriter").Elem()).FieldByName("w")
 		buffioWriter := reflect.Indirect(responseWriter)
 		readBytes = reflect.Indirect(buffioWriter.FieldByName("buf")).Bytes()
@@ -303,12 +298,9 @@ func logResponse(span go2sky.Span, res *echo.Response, c echo.Context, traceId s
 	hasZipHeader := false
 	if len(readBytes) >= 3 {
 		hasZipHeader = readBytes[0] == 0x1f && readBytes[1] == 0x8b && readBytes[2] == 8
-		if !isZip {
-			fmt.Printf("traceId:%s, 可能因为反射串场了.", traceId)
-		}
 	}
 
-	if isZip || hasZipHeader {
+	if _isZip || hasZipHeader {
 		buf := bytes.NewBuffer(readBytes)
 		r, _ := gzip.NewReader(buf)
 		if r != nil {
@@ -326,49 +318,49 @@ func logResponse(span go2sky.Span, res *echo.Response, c echo.Context, traceId s
 	} else {
 		undatas = readBytes
 	}
-	newR := bytes.NewReader(undatas)
-	undatas, _ = ioutil.ReadAll(newR)
+	str3 := string(bytes.TrimRight(undatas, "\x00"))
+	// fmt.Println("")
+	// fmt.Println("ungzip size:", len(undatas))
+	// fmt.Printf("traceId:%s , data:{[%s]}\n\n", traceId,  str3)
 
-	str3 := string(undatas[:])
-	fmt.Println("")
-	fmt.Println("ungzip size:", len(undatas))
-	fmt.Printf("traceId : %s , data :%s", traceId,  str3)
-
-	if len(str3) <= 2048 {
+	ln := len(str3)
+	if ln == 0 {
+		span.Log(time.Now(), "响应为空")
+	} else if ln <= 2048 {
 		//200 响应中notFountCode := "Code:404"
 		//errno 不为空
 		//if()
 		var errstrList = []string{"\"errno\":500", "\"errno\":50101", "\"errno\":10000"}
-		var  isError = false
+		var isError = false
 		for errorIndex := range errstrList {
 			if strings.Contains(str3, errstrList[errorIndex]) {
 				isError = true
-				break;
+				break
 			}
 		}
 
-		if  isError {
-			span.Error(time.Now(), "打印响应： " + str3)
-		} else  {
-			span.Log(time.Now(), "打印响应： " + str3)
+		if isError {
+			span.Error(time.Now(), "打印响应： "+str3)
+		} else {
+			span.Log(time.Now(), "打印响应： "+str3)
 		}
 	} else {
-		span.Log(time.Now(), "打印响应： " + str3[0:999]+"......")
+		span.Log(time.Now(), "打印响应： "+str3[0:999]+"......")
 	}
 
 	costTime := time.Now().Unix() - t
-
-	span.Log(time.Now(), "print response costTime： " + strconv.FormatInt(costTime,10))
+	span.Log(time.Now(), "print response costTime： "+strconv.FormatInt(costTime, 10))
 
 }
 
 func isZip(w http.ResponseWriter) bool {
+	fv := reflect.Indirect(reflect.ValueOf(w))
 
-	t := reflect.ValueOf(reflect.ValueOf(w).Elem().FieldByName("Writer"))
+	t := reflect.ValueOf(fv.FieldByName("Writer"))
 	if isBlank(t) {
 		return false
 	}
-	m := reflect.ValueOf(w).Elem().FieldByName("Writer").Interface().(*gzip.Writer)
+	m := fv.FieldByName("Writer").Interface().(*gzip.Writer)
 	typeOfHeader := reflect.TypeOf(m.Header)
 	typeOfHeaderStr := typeOfHeader.PkgPath() + "." + typeOfHeader.Name()
 
@@ -480,7 +472,6 @@ func getRequestParams(requestUrlArray []string) string {
 	}
 	return ""
 }
-
 
 func GetGlobalTraceId() string {
 	originCtx := GetContext()
