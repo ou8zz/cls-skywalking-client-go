@@ -1,4 +1,4 @@
-module github.com/liuyungen1988/cls-skywalking-client-go
+module github.com/ou8zz/cls-skywalking-client-go
 
 go 1.15
 
