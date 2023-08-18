@@ -12,7 +12,7 @@ type SafeHeader struct {
 
 func newSafeHeader(inputHeader http.Header) *SafeHeader {
 	sm := new(SafeHeader)
-	sm.header = inputHeader
+	sm.header = inputHeader.Clone()
 	return sm
 
 }

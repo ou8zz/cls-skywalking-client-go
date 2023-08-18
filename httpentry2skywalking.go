@@ -104,8 +104,9 @@ func StartLogForCron(e *echo.Echo, taskName string) go2sky.Span {
 		fmt.Sprintf("do_task_%s", taskName),
 		func() (string, error) {
 			value := ""
-			if c.Get("header") != nil {
-				value = c.Get("header").(*SafeHeader).Get(propagation.Header)
+			hd := c.Get("header")
+			if hd != nil {
+				value = hd.(*SafeHeader).Get(propagation.Header)
 			}
 			return value, nil
 		})
@@ -149,8 +150,7 @@ func LogToSkyWalking(next echo.HandlerFunc) echo.HandlerFunc {
 		//rwmForLog.Lock()
 		//defer rwmForLog.Unlock()
 		c.Set("tracer", GRPCTracer)
-		// TODO fixme 这里将echo请求的Header地址传入, 在另一个协程调用`StartSpantoSkyWalkingForRedis`函数时,有写入数据;
-		// 但主协程中又在读取数据,如:c.RealIP(), 造成了`fatal error: concurrent map read and map write`,从而panic
+
 		c.Set("header", newSafeHeader(c.Request().Header))
 		SetContext(c)
 		//defer DeleteContext()
@@ -173,8 +173,9 @@ func LogToSkyWalking(next echo.HandlerFunc) echo.HandlerFunc {
 			getoperationName(c, requestParamMap, requestUrlArray),
 			func() (string, error) {
 				value := ""
-				if c.Get("header") != nil {
-					value = c.Get("header").(*SafeHeader).Get(propagation.Header)
+				hd := c.Get("header")
+				if hd != nil {
+					value = hd.(*SafeHeader).Get(propagation.Header)
 				}
 				return value, nil
 			})

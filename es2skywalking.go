@@ -11,7 +11,6 @@ import (
 	"github.com/olivere/elastic"
 	"log"
 	"net/url"
-	"reflect"
 	"time"
 	_ "unsafe"
 )
@@ -71,10 +70,10 @@ func StartSpantoSkyWalkingForES(queryStr string) (go2sky.Span, error) {
 	}
 	tracer := tracerFromCtx.(*go2sky.Tracer)
 	reqSpan, err := tracer.CreateExitSpan(ctx.Request().Context(), queryStr, "ES", func(header string) error {
-		if reflect.TypeOf(ctx.Get("header")) != nil {
-			ctx.Get("header").(*SafeHeader).Set(propagation.Header, header)
+		hd := ctx.Get("header")
+		if hd != nil {
+			hd.(*SafeHeader).Set(propagation.Header, header)
 		}
-
 		return nil
 	})
 

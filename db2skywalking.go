@@ -2,13 +2,12 @@ package cls_skywalking_client_go
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
-
-	"errors"
-	"reflect"
 
 	"github.com/Masterminds/squirrel"
 	sq "github.com/Masterminds/squirrel"
@@ -16,7 +15,6 @@ import (
 	"github.com/liuyungen1988/go2sky"
 	"github.com/liuyungen1988/go2sky/propagation"
 	v3 "github.com/liuyungen1988/go2sky/reporter/grpc/language-agent"
-	"os"
 )
 
 var (
@@ -257,10 +255,10 @@ func StartSpantoSkyWalkingForDb(queryStr string, db string) (go2sky.Span, error)
 	}
 	tracer := tracerFromCtx.(*go2sky.Tracer)
 	reqSpan, err := tracer.CreateExitSpan(ctx.Request().Context(), queryStr, db, func(header string) error {
-		if reflect.TypeOf(ctx.Get("header")) != nil {
-			ctx.Get("header").(*SafeHeader).Set(propagation.Header, header)
+		hd := ctx.Get("header")
+		if hd != nil {
+			hd.(*SafeHeader).Set(propagation.Header, header)
 		}
-
 		return nil
 	})
 
