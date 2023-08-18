@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -64,7 +65,6 @@ func UseSkyWalking(e *echo.Echo, serviceName string) go2sky.Reporter {
 			GRPCTracer = tracer
 		}
 	}
-
 	e.Use(LogToSkyWalking)
 	go ClearContextAtRegularTime()
 	return GRPCReporter
@@ -139,6 +139,7 @@ var rwmForLog sync.RWMutex
 
 func LogToSkyWalking(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
+
 		if GRPCTracer == nil {
 			log.Printf("tracer is nil")
 			err = next(c)
@@ -148,6 +149,8 @@ func LogToSkyWalking(next echo.HandlerFunc) echo.HandlerFunc {
 		//rwmForLog.Lock()
 		//defer rwmForLog.Unlock()
 		c.Set("tracer", GRPCTracer)
+		// TODO fixme 这里将echo请求的Header地址传入, 在另一个协程调用`StartSpantoSkyWalkingForRedis`函数时,有写入数据;
+		// 但主协程中又在读取数据,如:c.RealIP(), 造成了`fatal error: concurrent map read and map write`,从而panic
 		c.Set("header", newSafeHeader(c.Request().Header))
 		SetContext(c)
 		//defer DeleteContext()
@@ -489,4 +492,28 @@ func GetGlobalTraceId() string {
 	}
 	traceId := go2sky.TraceID(ctx.Get("context").(context.Context))
 	return traceId
+}
+
+////=======================
+
+// 获取调用栈信息
+func stackTrace() string {
+	buf := make([]byte, 1024)
+	n := runtime.Stack(buf, false)
+	return string(buf[:n])
+}
+
+// 打印请求详情
+func printRequest(r *http.Request) {
+	fmt.Println("=====>>>", "打印请求详情", "<<<=====")
+	fmt.Println("Method:", r.Method)
+	fmt.Println("URL:", r.URL)
+	fmt.Println("Proto:", r.Proto)
+	fmt.Println("Header:")
+	for k, v := range r.Header {
+		fmt.Printf(" - %s: %s\n", k, v)
+	}
+	fmt.Println("Host:", r.Host)
+	fmt.Println("RemoteAddr:", r.RemoteAddr)
+	fmt.Println("RequestURI:", r.RequestURI)
 }

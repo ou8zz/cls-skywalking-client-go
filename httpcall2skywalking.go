@@ -1,7 +1,7 @@
 package cls_skywalking_client_go
 
 import (
-	"github.com/liuyungen1988/cls-skywalking-client-go/util"
+	"github.com/ou8zz/cls-skywalking-client-go/util"
 	"net/http"
 	"time"
 
