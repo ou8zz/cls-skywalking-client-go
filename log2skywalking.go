@@ -1,11 +1,11 @@
 package cls_skywalking_client_go
 
 import (
+	"github.com/labstack/echo/v4"
 	"github.com/liuyungen1988/go2sky"
 	"log"
 	"strings"
 	"time"
-	"github.com/labstack/echo/v4"
 )
 
 func Log(str ...string) {
@@ -18,7 +18,7 @@ searchableTagKeys: userId=a,telephone=12333333
 func LogWithSearch(searchableTagKeys string, str ...string) {
 	originCtx := GetContext()
 	if originCtx == nil {
-		log.Printf("can not get Context\n")
+		// log.Printf("can not get Context\n")
 		return
 	}
 	ctx := originCtx.(echo.Context)
@@ -53,7 +53,7 @@ searchableTagKeys: userId=a,phone=12333333
 func ErrorWithSearch(searchableTagKeys string, str ...string) {
 	originCtx := GetContext()
 	if originCtx == nil {
-		log.Printf("can not get Context\n")
+		// log.Printf("can not get Context\n")
 		return
 	}
 	ctx := originCtx.(echo.Context)
